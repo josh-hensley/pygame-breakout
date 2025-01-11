@@ -2,39 +2,55 @@ import pygame
 import random
 pygame.init()
 
-SCREEN = pygame.display.set_mode((720, 640))
-SCREEN_CENTER_X = SCREEN.get_width()//2
-SCREEN_CENTER_Y = SCREEN.get_height()//2
+SCREEN = pygame.display.set_mode((720, 640), pygame.SCALED)
+pygame.display.set_caption('BRICKOUT')
+SCREEN_WIDTH = SCREEN.get_width()
+SCREEN_HEIGHT = SCREEN.get_height()
+SCREEN_CENTER_X = SCREEN_WIDTH//2
+SCREEN_CENTER_Y = SCREEN_HEIGHT//2
 BLACK = pygame.Color(0,0,0)
 WHITE = pygame.Color(255, 255, 255)
-FONT = pygame.font.SysFont('impact', 100)
-VEL = 10
-MAX_SPEED = 15
+FONT = pygame.font.SysFont('impact', 50)
+PADDLE_SPEED = 8
+MAX_VELOCITY = .5
+PIP_SFX = pygame.mixer.Sound('Assets/pip.mp3')
+WALL_SFX = pygame.mixer.Sound('Assets/wall.mp3')
+FUMBLE_SFX = pygame.mixer.Sound('Assets/fumble.mp3')
+BG_SFX = pygame.mixer.Sound('Assets/pong_track.mp3')
 
 
 class Paddle:
     def __init__(self):
         self.x = SCREEN_CENTER_X
-        self.y = SCREEN.get_height() - 20
+        self.y = SCREEN_HEIGHT - 20
         self.rect = pygame.Rect(self.x, self.y, 50, 10)
-        self.dx = VEL
+        self.dx = PADDLE_SPEED
         self.score = 0
+        self.lives = 3
+        self.center = (self.x + self.rect.width//2, self.y + self.rect.height//2)
     def update(self):
         self.rect.x = self.x
         self.rect.y = self.y
+        self.center = (self.x + self.rect.width//2, self.y + self.rect.height//2)
 
 class Ball:
     def __init__(self):
         self.x = SCREEN_CENTER_X
         self.y = SCREEN_CENTER_Y
         self.rect = pygame.Rect(self.x, self.y, 10, 10)
-        self.dx = random.randrange(-100, 100) * .001
-        self.dy = random.randrange(0, 100) * .001
-        self.center = self.rect.width//2 + self.x, self.rect.height//2 + self.y
+        self.dx = random.randrange(-5, 5) * .01
+        self.dy = .1
+        self.center = (self.rect.width//2 + self.x, self.rect.height//2 + self.y)
     def update(self):
         self.rect.x = self.x
         self.rect.y = self.y
-        self.center = self.rect.width//2 + self.x, self.rect.height//2 + self.y        
+        self.center = (self.rect.width//2 + self.x, self.rect.height//2 + self.y)
+    def reset(self):
+        self.x = SCREEN_CENTER_X
+        self.y = SCREEN_CENTER_Y
+        self.dx = random.randrange(-5, 5) * .01
+        self.dy = .1
+        self.update()
 
 class Brick:
     def __init__(self, x, y, color):
@@ -45,34 +61,97 @@ class Brick:
 
 def movePaddle(p1):
     mouse_move = pygame.mouse.get_rel()
-    if mouse_move[0] > 0:
+    if mouse_move[0] > 0 and p1.x + p1.rect.width <= SCREEN_WIDTH:
         p1.x += p1.dx
         p1.update()
-    if mouse_move[0] < 0:
+    if mouse_move[0] < 0 and p1.x >= 0:
         p1.x -= p1.dx
-        p1.update()
+        p1.update()    
 
-def moveBall(ball):
-    if ball.x > SCREEN.get_width() - ball.rect.width or ball.x < 0:
+def handleWallCollision(ball):
+    if ball.center[0] >= SCREEN_WIDTH or ball.center[0] < 0:
         ball.dx *= -1
-        if abs(ball.dx) > MAX_SPEED and ball.dx < 0:
-            ball.dx = -MAX_SPEED
-        elif abs(ball.dx) > MAX_SPEED:
-            ball.dx = MAX_SPEED
         ball.x += ball.dx
+        ball.y += ball.dy
         ball.update()
-    if ball.y < 0 or ball.y > SCREEN.get_height() - ball.rect.height:
+        WALL_SFX.play()
+    if ball.center[1] <= 0:
         ball.dy *= -1
-        if abs(ball.dy) > MAX_SPEED and ball.dy < 0:
-            ball.dy = -MAX_SPEED
-        elif abs(ball.dy) > MAX_SPEED:
-            ball.dy = MAX_SPEED
-        ball.y += ball.dy
-        ball.update()
-    else:
         ball.x += ball.dx
         ball.y += ball.dy
         ball.update()
+        WALL_SFX.play()
+    if ball.center[1] >= SCREEN_HEIGHT:
+        FUMBLE_SFX.play()
+        pygame.time.delay(1000)
+        ball.reset()
+
+def handleBrickCollision(ball, bricks):
+    for brick in bricks:
+        if brick.rect.collidepoint(ball.center):
+            if ball.dx < 0:
+                if ball.center[0] == brick.rect.left:
+                    ball.dx *= -1
+                    ball.x += ball.dx
+                    ball.y += ball.dy
+                    ball.update()
+                    bricks.remove(brick)
+                    PIP_SFX.play()
+                else:
+                    ball.dy *= -1
+                    ball.x += ball.dx
+                    ball.y += ball.dy
+                    ball.update()
+                    bricks.remove(brick)
+                    PIP_SFX.play()
+            if ball.dx > 0:
+                if ball.center[0] == brick.rect.right:
+                    ball.dx *= -1
+                    ball.x += ball.dx
+                    ball.y += ball.dy
+                    ball.update()
+                    bricks.remove(brick)
+                    PIP_SFX.play()
+                else:
+                    ball.dy *= -1
+                    ball.x += ball.dx
+                    ball.y += ball.dy
+                    ball.update()
+                    bricks.remove(brick)
+                    PIP_SFX.play()
+
+def handlePaddleCollision(p1, ball):
+    if p1.rect.collidepoint(ball.center):
+        if ball.center[0] == p1.center[0]:
+            ball.dx = 0
+            ball.dy *= -1
+            ball.x += ball.dx
+            ball.y += ball.dy
+            ball.update()
+            PIP_SFX.play()
+        if ball.center[0] < p1.center[0]:
+            ball.dx = ((p1.center[0] - ball.center[0])/p1.rect.width) * MAX_VELOCITY * -1
+            ball.dy *= -1
+            ball.x += ball.dx
+            ball.y += ball.dy
+            ball.update()
+            PIP_SFX.play()
+        if ball.center[0] > p1.center[0]:
+            ball.dx = ((ball.center[0] - p1.center[0])/p1.rect.width) * MAX_VELOCITY
+            ball.dy *= -1
+            ball.x += ball.dx
+            ball.y += ball.dy
+            ball.update()
+            PIP_SFX.play()
+
+def moveAndCollide(p1, ball, bricks):
+    movePaddle(p1)
+    handleWallCollision(ball)
+    handleBrickCollision(ball, bricks)
+    handlePaddleCollision(p1, ball)
+    ball.x += ball.dx
+    ball.y += ball.dy
+    ball.update()
 
 def createBricks():
     bricks = []
@@ -92,26 +171,6 @@ def draw(p1, ball, bricks):
 def drawBricks(bricks):
     for brick in bricks:
         pygame.draw.rect(SCREEN, brick.color, brick.rect)
-
-def handleCollisions(p1, ball, bricks):
-    for brick in bricks:
-        if brick.rect.collidepoint(ball.center):
-            if ball.dy < 0:
-                if ball.center[1] > brick.y + brick.rect.height:
-                    ball.dx *= -1
-                    bricks.remove(brick)
-                else:
-                    ball.dy *= -1
-                    bricks.remove(brick)
-            elif ball.dy > 0:
-                if ball.center[1] < brick.y:
-                    ball.dx *= -1
-                    bricks.remove(brick)
-                else:
-                    ball.dy *= -1
-                    bricks.remove(brick)
-    if p1.rect.collidepoint(ball.center):
-        ball.dy *= -1
 
 def main():
     running = True
@@ -134,10 +193,8 @@ def main():
         if newGame:
             bricks = createBricks()
             newGame = False
-        movePaddle(p1)
-        moveBall(ball)
+        moveAndCollide(p1, ball, bricks)
         draw(p1, ball, bricks)
-        handleCollisions(p1, ball, bricks)
     pygame.quit()
 
 if __name__ == '__main__':
