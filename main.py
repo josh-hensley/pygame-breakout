@@ -176,7 +176,7 @@ def draw(p1, ball, bricks):
     pygame.draw.rect(SCREEN, WHITE, p1)
     drawBricks(bricks)
     pygame.draw.rect(SCREEN, WHITE, ball.rect)
-    pygame.display.flip()
+    pygame.display.update()
 
 def drawBricks(bricks):
     for brick in bricks:
@@ -186,7 +186,7 @@ def gameOver(p1):
     SCREEN.fill(BLACK)
     game_over_text = FONT.render(f'YOUR SCORE: {p1.score}', 1, WHITE)
     SCREEN.blit(game_over_text, (SCREEN_CENTER_X - game_over_text.get_width()/2, SCREEN_CENTER_Y - game_over_text.get_height()/2))
-    pygame.display.flip()
+    pygame.display.update()
     pygame.time.delay(2000)
 
 def main():
@@ -207,7 +207,7 @@ def main():
             SCREEN.fill(BLACK)
             menu_text = FONT.render('PRESS ANY BUTTON TO START', 1, WHITE)
             SCREEN.blit(menu_text, (SCREEN_CENTER_X - menu_text.get_width()//2, SCREEN_CENTER_Y - menu_text.get_height()//2))
-            pygame.display.flip()
+            pygame.display.update()
             continue
         if newGame:
             ball = Ball()
