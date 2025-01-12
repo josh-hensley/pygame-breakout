@@ -58,6 +58,7 @@ class Brick:
         self.y = y
         self.rect = pygame.Rect(self.x, self.y, 50, 10)
         self.color = color
+        self.points = 150
 
 def movePaddle(p1):
     mouse_move = pygame.mouse.get_rel()
@@ -68,7 +69,7 @@ def movePaddle(p1):
         p1.x -= p1.dx
         p1.update()    
 
-def handleWallCollision(ball):
+def handleWallCollision(ball, p1):
     if ball.center[0] >= SCREEN_WIDTH or ball.center[0] < 0:
         ball.dx *= -1
         ball.x += ball.dx
@@ -84,9 +85,10 @@ def handleWallCollision(ball):
     if ball.center[1] >= SCREEN_HEIGHT:
         FUMBLE_SFX.play()
         pygame.time.delay(1000)
+        p1.lives -= 1
         ball.reset()
 
-def handleBrickCollision(ball, bricks):
+def handleBrickCollision(ball, bricks, p1):
     for brick in bricks:
         if brick.rect.collidepoint(ball.center):
             if ball.dx < 0:
@@ -96,6 +98,7 @@ def handleBrickCollision(ball, bricks):
                     ball.y += ball.dy
                     ball.update()
                     bricks.remove(brick)
+                    p1.score += brick.points
                     PIP_SFX.play()
                 else:
                     ball.dy *= -1
@@ -103,6 +106,7 @@ def handleBrickCollision(ball, bricks):
                     ball.y += ball.dy
                     ball.update()
                     bricks.remove(brick)
+                    p1.score += brick.points
                     PIP_SFX.play()
             if ball.dx > 0:
                 if ball.center[0] == brick.rect.right:
@@ -111,6 +115,7 @@ def handleBrickCollision(ball, bricks):
                     ball.y += ball.dy
                     ball.update()
                     bricks.remove(brick)
+                    p1.score += brick.points
                     PIP_SFX.play()
                 else:
                     ball.dy *= -1
@@ -118,6 +123,7 @@ def handleBrickCollision(ball, bricks):
                     ball.y += ball.dy
                     ball.update()
                     bricks.remove(brick)
+                    p1.score += brick.points
                     PIP_SFX.play()
 
 def handlePaddleCollision(p1, ball):
@@ -146,8 +152,8 @@ def handlePaddleCollision(p1, ball):
 
 def moveAndCollide(p1, ball, bricks):
     movePaddle(p1)
-    handleWallCollision(ball)
-    handleBrickCollision(ball, bricks)
+    handleWallCollision(ball, p1)
+    handleBrickCollision(ball, bricks, p1)
     handlePaddleCollision(p1, ball)
     ball.x += ball.dx
     ball.y += ball.dy
@@ -155,7 +161,7 @@ def moveAndCollide(p1, ball, bricks):
 
 def createBricks():
     bricks = []
-    for i in range(10):
+    for i in range((SCREEN_WIDTH//10) - 1):
         for j in range(3):
             brick = Brick( i * 70 + 20, j * 30 + 150, WHITE )
             bricks.append(brick)
@@ -163,6 +169,10 @@ def createBricks():
 
 def draw(p1, ball, bricks):
     SCREEN.fill(BLACK)
+    score = FONT.render(f'{p1.score}', 1, WHITE)
+    lives = FONT.render(f'{p1.lives}', 1, WHITE)
+    SCREEN.blit(score, (SCREEN_CENTER_X/2 - score.get_width()/2, 10))
+    SCREEN.blit(lives, (SCREEN_WIDTH * 3 / 4 - lives.get_width()/2, 10))
     pygame.draw.rect(SCREEN, WHITE, p1)
     drawBricks(bricks)
     pygame.draw.rect(SCREEN, WHITE, ball.rect)
@@ -172,7 +182,15 @@ def drawBricks(bricks):
     for brick in bricks:
         pygame.draw.rect(SCREEN, brick.color, brick.rect)
 
+def gameOver(p1):
+    SCREEN.fill(BLACK)
+    game_over_text = FONT.render(f'YOUR SCORE: {p1.score}', 1, WHITE)
+    SCREEN.blit(game_over_text, (SCREEN_CENTER_X - game_over_text.get_width()/2, SCREEN_CENTER_Y - game_over_text.get_height()/2))
+    pygame.display.flip()
+    pygame.time.delay(2000)
+
 def main():
+    BG_SFX.play(-1)
     running = True
     menu = True
     newGame= True
@@ -186,15 +204,22 @@ def main():
             if event.type == pygame.KEYDOWN and menu:
                 menu = False
         if menu:
+            SCREEN.fill(BLACK)
             menu_text = FONT.render('PRESS ANY BUTTON TO START', 1, WHITE)
             SCREEN.blit(menu_text, (SCREEN_CENTER_X - menu_text.get_width()//2, SCREEN_CENTER_Y - menu_text.get_height()//2))
             pygame.display.flip()
             continue
         if newGame:
+            ball = Ball()
+            p1 = Paddle()
             bricks = createBricks()
             newGame = False
         moveAndCollide(p1, ball, bricks)
         draw(p1, ball, bricks)
+        if p1.lives == 0:
+            gameOver(p1)
+            menu = True
+            newGame = True
     pygame.quit()
 
 if __name__ == '__main__':
